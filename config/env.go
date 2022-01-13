@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"database/sql"
@@ -12,9 +12,12 @@ import (
 
 var envValueRegexp *regexp.Regexp = regexp.MustCompile("(\\w+)=(.+)")
 var DB *sql.DB
+var ServerPortString string
 
 func init() {
 	setEnvironmentVariables()
+	ServerPortString = os.Getenv("SERVER_PORT")
+	fmt.Println(ServerPortString)
 	setupDB()
 }
 
@@ -42,8 +45,11 @@ func setupDB() {
 	// fmt.Println(DB)
 }
 
+func CloseDB() {
+	DB.Close()
+}
+
 func main() {
-	defer DB.Close()
 	var col string
 	row := DB.QueryRow("SELECT 10;")
 	err := row.Scan(&col)

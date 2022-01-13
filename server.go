@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	defer config.CloseDB()
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.URL.Path)
 		fmt.Fprintf(w, "Welcome to new server very much!")
