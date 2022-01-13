@@ -8,7 +8,7 @@ CREATE TABLE rule_sets (
 );
 
 CREATE TABLE site_account_types (
-  name VARCHAR(255) PRIMARY KEY,
+  identifier VARCHAR(255) PRIMARY KEY,
   created_at timestamp NOT NULL DEFAULT NOW(),
   updated_at timestamp,
   rule_set_name VARCHAR(255) REFERENCES rule_sets (identifier) ON DELETE SET NULL
@@ -23,6 +23,7 @@ CREATE TABLE users (
   password_hash TEXT,
   created_at timestamp NOT NULL DEFAULT NOW(),
   updated_at timestamp,
+  site_account_type VARCHAR(255) REFERENCES site_account_types (identifier) ON DELETE SET NULL,
   bio TEXT
 );
 
