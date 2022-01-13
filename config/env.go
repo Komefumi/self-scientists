@@ -13,11 +13,12 @@ import (
 var envValueRegexp *regexp.Regexp = regexp.MustCompile("(\\w+)=(.+)")
 var DB *sql.DB
 var ServerPortString string
+var JWTSecret string
 
 func init() {
 	setEnvironmentVariables()
 	ServerPortString = os.Getenv("SERVER_PORT")
-	fmt.Println(ServerPortString)
+	JWTSecret = os.Getenv("JWT_SECRET")
 	setupDB()
 }
 

@@ -13,6 +13,6 @@ func SetupServer() {
 	})
 
 	http.HandleFunc("/users", registrationHandler)
+	http.HandleFunc("/login", loginHandler)
 	http.ListenAndServe(":"+config.ServerPortString, nil)
-
 }

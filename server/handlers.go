@@ -16,13 +16,14 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 			err := json.NewDecoder(r.Body).Decode(&newUser)
 			if err != nil {
 				w.WriteHeader(400)
-				resp = standardResponse{Status: 1, Message: "Invalid request body", Data: emptyData, Errors: emptyErrors}
+				resp = responseForInvalidRequestBody
 				break
 			}
 			errors, internalServerError := newUser.CreateUser()
 			if internalServerError {
 				w.WriteHeader(500)
-				resp = standardResponse{Status: 2, Message: "Internal Server Error", Data: emptyData, Errors: emptyErrors}
+				resp = responseForInternalServerError
+				break
 			}
 			if len(errors) > 0 {
 				w.WriteHeader(400)
@@ -33,8 +34,45 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	default:
 		{
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusMethodNotAllowed)
 			resp = standardResponse{Status: 1, Message: "Invalid Method", Data: emptyData, Errors: emptyErrors}
+		}
+	}
+	json.NewEncoder(w).Encode(resp)
+	return
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var resp standardResponse
+	switch r.Method {
+	case http.MethodPost:
+		{
+			var ag authGate
+			err := json.NewDecoder(r.Body).Decode(&ag)
+			if err != nil {
+				w.WriteHeader(400)
+				resp = responseForInvalidRequestBody
+				break
+			}
+			token, errors, internallyErrored := ag.AuthenticateAndCreateToken()
+			if internallyErrored {
+				w.WriteHeader(500)
+				resp = responseForInternalServerError
+				break
+			}
+			if len(errors) > 0 {
+				w.WriteHeader(400)
+				resp = standardResponse{Status: 1, Message: "Error In User Authentication, Check errors field", Data: emptyData, Errors: errors}
+				break
+			}
+			returnableData := make(map[string]interface{})
+			returnableData["token"] = token
+			resp = standardResponse{Status: 0, Message: "Successfully logged in and created AUTH token", Data: returnableData, Errors: emptyErrors}
+		}
+	default:
+		{
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	}
 	json.NewEncoder(w).Encode(resp)
