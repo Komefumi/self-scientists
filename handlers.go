@@ -29,7 +29,11 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 				resp = standardResponse{Status: 1, Message: "Invalid request body", Data: emptyData, Errors: emptyErrors}
 				break
 			}
-			errors := newUser.CreateUser()
+			errors, internalServerError := newUser.CreateUser()
+			if internalServerError {
+				w.WriteHeader(500)
+				resp = standardResponse{Status: 2, Message: "Internal Server Error", Data: emptyData, Errors: emptyErrors}
+			}
 			if len(errors) > 0 {
 				w.WriteHeader(400)
 				resp = standardResponse{Status: 1, Message: "Error In User Registration, Check errors field", Data: emptyData, Errors: errors}

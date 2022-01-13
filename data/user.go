@@ -1,6 +1,7 @@
 package data
 
 import (
+	"log"
 	"reflect"
 	"self-scientists/config"
 	"self-scientists/utils"
@@ -9,14 +10,15 @@ import (
 )
 
 type User struct {
-	FirstName   string `json:"firstName"`
-	LastName    string `json:"lastName"`
-	Email       string `json:"Email"`
-	DateOfBirth string `json:"dateOfBirth"`
-	Password    string `json:"password"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
-	Bio         string `json:"bio"`
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
+	Email        string `json:"Email"`
+	DateOfBirth  string `json:"dateOfBirth"`
+	Password     string `json:"password"`
+	PasswordHash string `json:"-"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
+	Bio          string `json:"bio"`
 }
 
 var nonReturnableUserFields []string = []string{"password"}
@@ -49,19 +51,33 @@ func (user User) validateForCreation() (errors []string) {
 	return errors
 }
 
-func (user *User) CreateUser() (errors []string) {
+func (user *User) CreateUser() (errors []string, internallyErrored bool) {
 	// var errors []string = []string{}
 	var userCount int
 	errors = user.validateForCreation()
 	if len(errors) != 0 {
-		return errors
+		return errors, false
 	}
 	row := config.DB.QueryRow("SELECT COUNT(*) FROM users WHERE email=$1", user.Email)
 	row.Scan(&userCount)
 	if userCount > 0 {
 		errors = append(errors, "Email is already in use")
 	}
-	return errors
+	passwordHash, hashingError := utils.HashAndSalt(user.Password)
+	if hashingError != nil {
+		return errors, true
+	}
+	// user.PasswordHash = passwordHash
+	sqlStatement := `
+			INSERT INTO users (first_name, last_name, email, date_of_birth, password_hash, site_account_type)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`
+	_, dbErr := config.DB.Exec(sqlStatement, user.FirstName, user.LastName, user.Email, user.DateOfBirth, passwordHash, "regular_user")
+	if dbErr != nil {
+		log.Fatal(dbErr)
+		return errors, true
+	}
+	return errors, false
 }
 
 // Gets a map of struct data with blacklisted fields removed
