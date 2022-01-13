@@ -1,20 +1,10 @@
-package main
+package server
 
 import (
 	"encoding/json"
 	"net/http"
 	"self-scientists/data"
 )
-
-type standardResponse struct {
-	Status  uint8       `json:"status"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
-	Errors  []string    `json:"errors"`
-}
-
-var emptyData = struct{}{}
-var emptyErrors = []string{}
 
 func registrationHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
