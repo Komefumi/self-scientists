@@ -10,6 +10,7 @@ import (
 )
 
 type User struct {
+	Id           string `json:"id"`
 	FirstName    string `json:"firstName"`
 	LastName     string `json:"lastName"`
 	Email        string `json:"Email"`
@@ -22,6 +23,20 @@ type User struct {
 }
 
 var nonReturnableUserFields []string = []string{"password"}
+
+func DoesUserOfIDExist(userId uint) bool {
+	var usersFound int
+	row := config.DB.QueryRow("SELECT COUNT(*) FROM users WHERE id=$1", userId)
+	err := row.Scan(&usersFound)
+	if err != nil {
+		panic("Unable to connect to DB")
+	}
+	if usersFound == 0 {
+		return false
+	} else {
+		return true
+	}
+}
 
 func (user User) validateForCreation() (errors []string) {
 	// errors := []string{}

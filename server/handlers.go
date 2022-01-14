@@ -3,7 +3,9 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"self-scientists/config"
 	"self-scientists/data"
+	"time"
 )
 
 func registrationHandler(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +77,60 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	}
+	json.NewEncoder(w).Encode(resp)
+	return
+}
+
+func tokenCheckMiddleware(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var resp standardResponse
+
+		w.Header().Set("Content-Type", "application/json")
+		headerTokenString := r.Header.Get(config.AUTH_HEADER_NAME)
+		tokenFormatSatisfied := headerAccessTokenRegexp.MatchString(headerTokenString)
+		if !tokenFormatSatisfied {
+			w.WriteHeader(400)
+			resp = standardResponse{Status: 1, Message: noticeToUserForMalformedToken, Data: emptyData, Errors: emptyErrors}
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		extractedTokenString := headerAccessTokenRegexp.FindAllStringSubmatch(headerTokenString, -1)[0][1]
+		extractedClaims := VerifyToken(extractedTokenString)
+		if extractedClaims == nil {
+			w.WriteHeader(400)
+			resp = standardResponse{Status: 1, Message: noticeToUserForTokenValidationFailure, Data: emptyData, Errors: emptyErrors}
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		tExpiry := time.Unix(extractedClaims.ExpiresAt, 0)
+		timeOfExpiryAlreadyReached := time.Now().After(tExpiry)
+		if timeOfExpiryAlreadyReached {
+			w.WriteHeader(400)
+			resp = standardResponse{Status: 1, Message: noticeToUserForTokenExpiration, Data: emptyData, Errors: emptyErrors}
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		userExists := data.DoesUserOfIDExist(extractedClaims.ID)
+		if !userExists {
+			w.WriteHeader(400)
+			resp = standardResponse{Status: 1, Message: noticeToUserForAccountNotExistingDespiteValidToken, Data: emptyData, Errors: emptyErrors}
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		r.Header.Set(config.READY_TOKEN_STRING_HEADER_NAME, extractedTokenString)
+		next(w, r)
+	}
+}
+
+func testHandler(w http.ResponseWriter, r *http.Request) {
+	var resp standardResponse
+	respBody := make(map[string]interface{})
+	tokenString := r.Header.Get(config.READY_TOKEN_STRING_HEADER_NAME)
+	parsedClaims := VerifyToken(tokenString)
+	respBody["extractedClaims"] = parsedClaims
+	resp = standardResponse{Status: 0, Message: "Test Successful", Data: respBody, Errors: emptyErrors}
 	json.NewEncoder(w).Encode(resp)
 	return
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
 	"self-scientists/config"
 	"self-scientists/utils"
 	"self-scientists/validation"
@@ -10,6 +11,13 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 )
+
+const noticeToUserForMalformedToken = "Malformed Token or Token not provided. Provide token in `Token: (token)` format as Authorization Header"
+const noticeToUserForTokenValidationFailure = "Token validation failure. Retry with a new access token (login again)"
+const noticeToUserForTokenExpiration = "Token has expired, login again to get a new token to try again"
+const noticeToUserForAccountNotExistingDespiteValidToken = "Though token is valid, account does not seem to exist. If you recently deleted your account, try logging out or clearing your cache"
+
+var headerAccessTokenRegexp *regexp.Regexp = regexp.MustCompile("^Token: ([a-zA-Z0-9-_.]+)$")
 
 var signingKey = []byte(config.JWTSecret)
 
@@ -22,11 +30,13 @@ type standardResponse struct {
 
 type authClaims struct {
 	Email string `json:"email"`
+	ID    uint   `json:"id"`
 	jwt.StandardClaims
 }
 
 type authGate struct {
 	Email    string `json:"email"`
+	ID       uint   `json:"id"`
 	Password string `json:"password"`
 }
 
@@ -38,7 +48,7 @@ var responseForInternalServerError = standardResponse{Status: 2, Message: "Inter
 
 var defaultAuthFailureError = "User with does not exist or password invalid"
 
-func (ag authGate) validateForAuth() (errors []string, internallyErrored bool) {
+func (ag *authGate) validateForAuth() (errors []string, internallyErrored bool) {
 	internallyErrored = false
 	if !validation.IsEmail(ag.Email) {
 		errors = append(errors, "Must provide a valid email")
@@ -47,8 +57,11 @@ func (ag authGate) validateForAuth() (errors []string, internallyErrored bool) {
 		errors = append(errors, "Must provide a password")
 	}
 	var userPasswordHash string
-	row := config.DB.QueryRow("SELECT password_hash FROM users WHERE email=$1", ag.Email)
-	err := row.Scan(&userPasswordHash)
+	var userId uint
+	row := config.DB.QueryRow("SELECT id, password_hash FROM users WHERE email=$1", ag.Email)
+	err := row.Scan(&userId, &userPasswordHash)
+	fmt.Println("UserId below")
+	fmt.Println(userId)
 	switch err {
 	case sql.ErrNoRows:
 		{
@@ -57,6 +70,7 @@ func (ag authGate) validateForAuth() (errors []string, internallyErrored bool) {
 		}
 	case nil:
 		{
+			ag.ID = userId
 			break
 		}
 	default:
@@ -82,6 +96,7 @@ func (ag authGate) AuthenticateAndCreateToken() (tokenString string, errors []st
 	ttl := time.Second * 60 * 60 * 24 * 10
 	timeOfExpiry := time.Now().UTC().Add(ttl).Unix()
 	claims := authClaims{
+		ID:    ag.ID,
 		Email: ag.Email,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: timeOfExpiry,
