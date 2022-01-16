@@ -39,6 +39,7 @@ CREATE TABLE threads (
   description TEXT,
   created_at timestamp NOT NULL DEFAULT NOW(),
   updated_at timestamp,
+  creator_id integer NOT NULL REFERENCES users (id) ON DELETE SET NULL,
   category_identifier VARCHAR(255) REFERENCES categories (identifier) ON DELETE SET NULL
 );
 
@@ -48,5 +49,6 @@ CREATE TABLE posts (
   created_at timestamp NOT NULL DEFAULT NOW(),
   updated_at timestamp,
   author_id integer NOT NULL REFERENCES users (id) ON DELETE SET NULL,
-  replying_to_id integer REFERENCES posts (id) ON DELETE SET NULL
+  replying_to_id integer REFERENCES posts (id) ON DELETE SET NULL,
+  content TEXT NOT NULL
 );
