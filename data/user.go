@@ -1,7 +1,6 @@
 package data
 
 import (
-	"log"
 	"reflect"
 	"self-scientists/config"
 	"self-scientists/utils"
@@ -89,7 +88,6 @@ func (user *User) CreateUser() (errors []string, internallyErrored bool) {
 		`
 	_, dbErr := config.DB.Exec(sqlStatement, user.FirstName, user.LastName, user.Email, user.DateOfBirth, passwordHash, "regular_user")
 	if dbErr != nil {
-		log.Fatal(dbErr)
 		return errors, true
 	}
 	return errors, false
