@@ -30,9 +30,54 @@ func (thread Thread) validateForCreation() []string {
 	if err != nil {
 		panic("Unable to connect to DB")
 	}
-	if categoriesFound != 0 {
+	if categoriesFound == 0 {
 		errors = append(errors, "No category with provided name exists")
 	}
 
 	return errors
+}
+
+func (thread Thread) CreateThread(creator_id uint) (errors []string, internallyErrored bool) {
+	internallyErrored = false
+	errors = thread.validateForCreation()
+	if len(errors) > 0 {
+		return
+	}
+	sqlStatement := `
+      INSERT INTO threads (title, description, category_identifier, creator_id)
+      VALUES ($1, $2, $3, $4)
+    `
+	_, dbErr := config.DB.Exec(sqlStatement, thread.Title, thread.Description, thread.CategoryName, creator_id)
+	if dbErr != nil {
+		internallyErrored = true
+	}
+	return
+}
+
+func GetThreadById(thread_id uint) (threadData map[string]interface{}, internallyErrored bool) {
+	threadData = nil
+	internallyErrored = false
+	sqlStatement := `
+		SELECT * FROM threads WHERE id=$1
+	`
+	rows, dbErr := config.DB.Query(sqlStatement, thread_id)
+	if dbErr != nil {
+		internallyErrored = true
+		return
+	}
+
+	mappedDataList, errMappingOverData := getMapListFromSQLRows(rows)
+
+	if errMappingOverData != nil {
+		internallyErrored = true
+		return
+	}
+
+	if len(mappedDataList) > 0 {
+		threadData = mappedDataList[0]
+	} else {
+		threadData = nil
+	}
+
+	return
 }
