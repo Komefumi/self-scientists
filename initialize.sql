@@ -17,3 +17,22 @@ INSERT INTO site_account_types (
   'regular_user',
   'regular_user_rule_set'
 );
+
+
+INSERT INTO categories (
+  identifier
+) VALUES (
+  'general'
+);
+
+INSERT INTO categories (
+  identifier
+) VALUES (
+  'becoming-a-scientist'
+);
+
+INSERT INTO categories (
+  identifier
+) VALUES (
+  'education'
+);
