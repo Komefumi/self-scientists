@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 	"regexp"
 	"self-scientists/config"
 	"self-scientists/utils"
@@ -112,7 +113,7 @@ func (ag authGate) AuthenticateAndCreateToken() (tokenString string, errors []st
 	return tokenString, errors, false
 }
 
-func VerifyToken(tokenString string) *authClaims {
+func verifyToken(tokenString string) *authClaims {
 	token, _ := jwt.ParseWithClaims(tokenString, &authClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return signingKey, nil
 	})
@@ -123,4 +124,10 @@ func VerifyToken(tokenString string) *authClaims {
 	} else {
 		return nil
 	}
+}
+
+func getDecodedAuthClaims(r *http.Request) *authClaims {
+	tokenString := r.Header.Get(config.READY_TOKEN_STRING_HEADER_NAME)
+	parsedClaims := verifyToken(tokenString)
+	return parsedClaims
 }

@@ -22,7 +22,7 @@ func tokenCheckMiddleware(next func(http.ResponseWriter, *http.Request)) func(ht
 			return
 		}
 		extractedTokenString := headerAccessTokenRegexp.FindAllStringSubmatch(headerTokenString, -1)[0][1]
-		extractedClaims := VerifyToken(extractedTokenString)
+		extractedClaims := verifyToken(extractedTokenString)
 		if extractedClaims == nil {
 			w.WriteHeader(400)
 			resp = standardResponse{Status: 1, Message: noticeToUserForTokenValidationFailure, Data: emptyData, Errors: emptyErrors}
