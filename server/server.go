@@ -15,5 +15,6 @@ func SetupServer() {
 	http.HandleFunc("/users", registrationHandler)
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/test", tokenCheckMiddleware(testHandler))
+	http.HandleFunc("/threads", tokenCheckMiddleware(threadsHandler))
 	http.ListenAndServe(":"+config.ServerPortString, nil)
 }

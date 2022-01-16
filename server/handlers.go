@@ -5,8 +5,45 @@ import (
 	"net/http"
 	"self-scientists/config"
 	"self-scientists/data"
-	"time"
 )
+
+const (
+	invalid_body_problem = iota
+	internal_server_error_problem
+	request_fields_validation_problem
+)
+
+func handleProblem(w http.ResponseWriter, r *http.Request, problemInteger int, passedErrors []string) {
+	var errors []string
+	if len(passedErrors) > 0 {
+		errors = passedErrors
+	} else {
+		errors = emptyErrors
+	}
+	var resp standardResponse
+	switch problemInteger {
+	case invalid_body_problem:
+		{
+			w.WriteHeader(400)
+			resp = responseForInvalidRequestBody
+		}
+	case internal_server_error_problem:
+		{
+			w.WriteHeader(500)
+			resp = responseForInternalServerError
+		}
+	case request_fields_validation_problem:
+		{
+			w.WriteHeader(400)
+			resp = standardResponse{Status: 1, Message: "Error processing request, check errors field", Data: emptyData, Errors: errors}
+		}
+	default:
+		{
+			panic("Must provide problemInteger")
+		}
+	}
+	json.NewEncoder(w).Encode(resp)
+}
 
 func registrationHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -17,20 +54,17 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 			var newUser data.User
 			err := json.NewDecoder(r.Body).Decode(&newUser)
 			if err != nil {
-				w.WriteHeader(400)
-				resp = responseForInvalidRequestBody
-				break
+				handleProblem(w, r, invalid_body_problem, emptyErrors)
+				return
 			}
 			errors, internalServerError := newUser.CreateUser()
 			if internalServerError {
-				w.WriteHeader(500)
-				resp = responseForInternalServerError
-				break
+				handleProblem(w, r, internal_server_error_problem, emptyErrors)
+				return
 			}
 			if len(errors) > 0 {
-				w.WriteHeader(400)
-				resp = standardResponse{Status: 1, Message: "Error In User Registration, Check errors field", Data: emptyData, Errors: errors}
-				break
+				handleProblem(w, r, invalid_body_problem, errors)
+				return
 			}
 			resp = standardResponse{Status: 0, Message: "User Registration Success!", Data: emptyData, Errors: emptyErrors}
 		}
@@ -53,20 +87,17 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			var ag authGate
 			err := json.NewDecoder(r.Body).Decode(&ag)
 			if err != nil {
-				w.WriteHeader(400)
-				resp = responseForInvalidRequestBody
-				break
+				handleProblem(w, r, invalid_body_problem, emptyErrors)
+				return
 			}
 			token, errors, internallyErrored := ag.AuthenticateAndCreateToken()
 			if internallyErrored {
-				w.WriteHeader(500)
-				resp = responseForInternalServerError
-				break
+				handleProblem(w, r, internal_server_error_problem, emptyErrors)
+				return
 			}
 			if len(errors) > 0 {
-				w.WriteHeader(400)
-				resp = standardResponse{Status: 1, Message: "Error In User Authentication, Check errors field", Data: emptyData, Errors: errors}
-				break
+				handleProblem(w, r, request_fields_validation_problem, errors)
+				return
 			}
 			returnableData := make(map[string]interface{})
 			returnableData["token"] = token
@@ -81,49 +112,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func tokenCheckMiddleware(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var resp standardResponse
-
-		w.Header().Set("Content-Type", "application/json")
-		headerTokenString := r.Header.Get(config.AUTH_HEADER_NAME)
-		tokenFormatSatisfied := headerAccessTokenRegexp.MatchString(headerTokenString)
-		if !tokenFormatSatisfied {
-			w.WriteHeader(400)
-			resp = standardResponse{Status: 1, Message: noticeToUserForMalformedToken, Data: emptyData, Errors: emptyErrors}
-			json.NewEncoder(w).Encode(resp)
-			return
-		}
-		extractedTokenString := headerAccessTokenRegexp.FindAllStringSubmatch(headerTokenString, -1)[0][1]
-		extractedClaims := VerifyToken(extractedTokenString)
-		if extractedClaims == nil {
-			w.WriteHeader(400)
-			resp = standardResponse{Status: 1, Message: noticeToUserForTokenValidationFailure, Data: emptyData, Errors: emptyErrors}
-			json.NewEncoder(w).Encode(resp)
-			return
-		}
-		tExpiry := time.Unix(extractedClaims.ExpiresAt, 0)
-		timeOfExpiryAlreadyReached := time.Now().After(tExpiry)
-		if timeOfExpiryAlreadyReached {
-			w.WriteHeader(400)
-			resp = standardResponse{Status: 1, Message: noticeToUserForTokenExpiration, Data: emptyData, Errors: emptyErrors}
-			json.NewEncoder(w).Encode(resp)
-			return
-		}
-
-		userExists := data.DoesUserOfIDExist(extractedClaims.ID)
-		if !userExists {
-			w.WriteHeader(400)
-			resp = standardResponse{Status: 1, Message: noticeToUserForAccountNotExistingDespiteValidToken, Data: emptyData, Errors: emptyErrors}
-			json.NewEncoder(w).Encode(resp)
-			return
-		}
-
-		r.Header.Set(config.READY_TOKEN_STRING_HEADER_NAME, extractedTokenString)
-		next(w, r)
-	}
-}
-
 func testHandler(w http.ResponseWriter, r *http.Request) {
 	var resp standardResponse
 	respBody := make(map[string]interface{})
@@ -133,4 +121,33 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 	resp = standardResponse{Status: 0, Message: "Test Successful", Data: respBody, Errors: emptyErrors}
 	json.NewEncoder(w).Encode(resp)
 	return
+}
+
+func getThreadsHandler(w http.ResponseWriter, r *http.Request) {
+	resp := standardResponse{Status: 0, Message: "Test Successful", Data: emptyData, Errors: emptyErrors}
+	json.NewEncoder(w).Encode(resp)
+	return
+}
+
+/*
+func createThreadsHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+*/
+
+func threadsHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	/*
+		case http.MethodPost:
+			{
+				var newThread data.Thread
+				err := json.NewDecoder(r.Body).Decode(&newThread)
+			}
+	*/
+	default:
+		{
+			testHandler(w, r)
+			return
+		}
+	}
 }
