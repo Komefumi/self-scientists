@@ -5,13 +5,13 @@ import (
 )
 
 type ThreadPayload struct {
-	Id           string `json:"id"`
 	Title        string `json:"title"`
 	Description  string `json:"description"`
 	CategoryName string `json:"categoryName"`
 }
 
 type PostPayload struct {
+	// ThreadID
 }
 
 func (thread ThreadPayload) validateForCreation() []string {
