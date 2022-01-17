@@ -1,27 +1,22 @@
 package data
 
 import (
-	"reflect"
 	"self-scientists/config"
 	"self-scientists/utils"
 	"self-scientists/validation"
-	"strings"
 )
 
-type User struct {
-	Id           string `json:"id"`
-	FirstName    string `json:"firstName"`
-	LastName     string `json:"lastName"`
-	Email        string `json:"Email"`
-	DateOfBirth  string `json:"dateOfBirth"`
-	Password     string `json:"password"`
-	PasswordHash string `json:"-"`
-	CreatedAt    string `json:"createdAt"`
-	UpdatedAt    string `json:"updatedAt"`
-	Bio          string `json:"bio"`
+type UserPayload struct {
+	Id          string `json:"id"`
+	FirstName   string `json:"firstName"`
+	LastName    string `json:"lastName"`
+	Email       string `json:"Email"`
+	DateOfBirth string `json:"dateOfBirth"`
+	Password    string `json:"password"`
+	Bio         string `json:"bio"`
 }
 
-var nonReturnableUserFields []string = []string{"password"}
+// var nonReturnableUserFields []string = []string{"password"}
 
 func DoesUserOfIDExist(userId uint) bool {
 	var usersFound int
@@ -37,7 +32,7 @@ func DoesUserOfIDExist(userId uint) bool {
 	}
 }
 
-func (user User) validateForCreation() (errors []string) {
+func (user UserPayload) validateForCreation() (errors []string) {
 	// errors := []string{}
 	if len(user.FirstName) == 0 || len(user.LastName) == 0 {
 		errors = append(errors, "First name and last name have to be provided")
@@ -65,7 +60,7 @@ func (user User) validateForCreation() (errors []string) {
 	return errors
 }
 
-func (user *User) CreateUser() (errors []string, internallyErrored bool) {
+func (user *UserPayload) CreateUser() (errors []string, internallyErrored bool) {
 	// var errors []string = []string{}
 	var userCount int
 	errors = user.validateForCreation()
@@ -93,6 +88,7 @@ func (user *User) CreateUser() (errors []string, internallyErrored bool) {
 	return errors, false
 }
 
+/*
 // Gets a map of struct data with blacklisted fields removed
 func (user User) GetJSONAllowedData() map[string]interface{} {
 	returnable := map[string]interface{}{}
@@ -114,3 +110,4 @@ func (user User) GetJSONAllowedData() map[string]interface{} {
 
 	return returnable
 }
+*/

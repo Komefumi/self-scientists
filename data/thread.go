@@ -4,16 +4,17 @@ import (
 	"self-scientists/config"
 )
 
-type Thread struct {
+type ThreadPayload struct {
 	Id           string `json:"id"`
 	Title        string `json:"title"`
 	Description  string `json:"description"`
-	CreatedAt    string `json:"createdAt"`
-	UpdatedAt    string `json:"updatedAt"`
 	CategoryName string `json:"categoryName"`
 }
 
-func (thread Thread) validateForCreation() []string {
+type PostPayload struct {
+}
+
+func (thread ThreadPayload) validateForCreation() []string {
 	errors := []string{}
 
 	if len(thread.Title) == 0 || len(thread.Description) == 0 || len(thread.CategoryName) == 0 {
@@ -37,7 +38,7 @@ func (thread Thread) validateForCreation() []string {
 	return errors
 }
 
-func (thread Thread) CreateThread(creator_id uint) (errors []string, internallyErrored bool) {
+func (thread ThreadPayload) CreateThread(creator_id uint) (errors []string, internallyErrored bool) {
 	internallyErrored = false
 	errors = thread.validateForCreation()
 	if len(errors) > 0 {

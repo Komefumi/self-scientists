@@ -58,7 +58,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		{
-			var newUser data.User
+			var newUser data.UserPayload
 			err := json.NewDecoder(r.Body).Decode(&newUser)
 			if err != nil {
 				handleInvalidBodyProblem(w, r)
@@ -208,7 +208,7 @@ func threadsRetrievalHandler(w http.ResponseWriter, r *http.Request) {
 
 func createThreadHandler(w http.ResponseWriter, r *http.Request) {
 	authClaims := getDecodedAuthClaims(r)
-	var newThread data.Thread
+	var newThread data.ThreadPayload
 	decodeErr := json.NewDecoder(r.Body).Decode(&newThread)
 	if decodeErr != nil {
 		handleInvalidBodyProblem(w, r)
