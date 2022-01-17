@@ -81,3 +81,45 @@ func GetThreadById(thread_id uint) (threadData map[string]interface{}, internall
 
 	return
 }
+
+func GetThreadsPageCount() (pageCount uint, internallyErrored bool) {
+	pageCount = 0
+	internallyErrored = false
+
+	sqlStatement := `SELECT COUNT(*) FROM threads`
+
+	row := config.DB.QueryRow(sqlStatement)
+
+	errScan := row.Scan(&pageCount)
+
+	if errScan != nil {
+		internallyErrored = true
+	}
+
+	return
+}
+
+func GetThreadListByPage(pageNumber uint) (threadDataList []map[string]interface{}, internallyErrored bool) {
+	threadDataList = []map[string]interface{}{}
+	internallyErrored = false
+	sqlStatementThreadSelect := `
+		SELECT * FROM threads OFFSET $1 LIMIT $2
+	`
+	rowsThreadSelect, dbErrThreadSelect := config.DB.Query(sqlStatementThreadSelect, ((pageNumber - 1) * config.ThreadPaginationSize), config.ThreadPaginationSize)
+
+	if dbErrThreadSelect != nil {
+		internallyErrored = true
+		return
+	}
+
+	mappedDataList, errMappingOverData := getMapListFromSQLRows(rowsThreadSelect)
+
+	if errMappingOverData != nil {
+		internallyErrored = true
+		return
+	}
+
+	threadDataList = mappedDataList
+
+	return
+}

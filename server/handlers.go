@@ -156,6 +156,34 @@ func getThreadByIDHandler(w http.ResponseWriter, r *http.Request, id string) {
 
 }
 
+func getThreadListByPageHandler(w http.ResponseWriter, r *http.Request, pageNumberString string) {
+	pageNumber, idParseErr := strconv.ParseUint(pageNumberString, 10, 64)
+	if idParseErr != nil {
+		w.WriteHeader(400)
+		resp := standardResponse{Status: 0, Message: "Error: Must provide valid page number to retrieve threads by page", Data: emptyData, Errors: emptyErrors}
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+
+	threadDataList, internallyErrored := data.GetThreadListByPage(uint(pageNumber))
+
+	if internallyErrored {
+		handleInternalServerErrorProblem(w, r)
+		return
+	}
+
+	returnData := make(map[string]interface{})
+	returnData["pageSize"] = config.ThreadPaginationSize
+	if len(threadDataList) == 0 {
+		returnData["empty"] = true
+	} else {
+		returnData["empty"] = false
+	}
+	returnData["threads"] = threadDataList
+	resp := standardResponse{Status: 0, Message: "Threads successfully retrieved", Data: returnData, Errors: emptyErrors}
+	json.NewEncoder(w).Encode(resp)
+}
+
 func threadsRetrievalHandler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	threadId := query.Get("id")
@@ -164,7 +192,16 @@ func threadsRetrievalHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := standardResponse{Status: 0, Message: "Test Successful", Data: emptyData, Errors: emptyErrors}
+	pageNumber := query.Get("page")
+	if len(pageNumber) != 0 {
+		getThreadListByPageHandler(w, r, pageNumber)
+		return
+	}
+
+	w.WriteHeader(400)
+	errMessage := "Error: Must provide at least one of the following in query params: id (to get specific thread), page (to get a paginated set of threads)"
+	resp := standardResponse{Status: 1, Message: errMessage, Data: emptyData, Errors: emptyErrors}
+
 	json.NewEncoder(w).Encode(resp)
 	return
 }
