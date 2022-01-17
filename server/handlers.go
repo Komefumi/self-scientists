@@ -12,6 +12,7 @@ const (
 	invalid_body_problem = iota
 	internal_server_error_problem
 	request_fields_validation_problem
+	not_found_problem
 )
 
 func handleProblem(w http.ResponseWriter, r *http.Request, problemInteger int, passedErrors []string) {
@@ -32,9 +33,15 @@ func handleProblem(w http.ResponseWriter, r *http.Request, problemInteger int, p
 			w.WriteHeader(400)
 			resp = standardResponse{Status: 1, Message: "Error processing request, check errors field", Data: emptyData, Errors: passedErrors}
 		}
+	case not_found_problem:
+		{
+			w.WriteHeader(404)
+			resp = standardResponse{Status: 1, Message: "Error: 404, Resource/operation requested for not found", Data: emptyData, Errors: passedErrors}
+		}
 	default:
 		{
-			panic("Must provide problemInteger")
+			handleProblem(w, r, internal_server_error_problem, emptyErrors)
+			return
 		}
 	}
 	json.NewEncoder(w).Encode(resp)
@@ -50,6 +57,10 @@ func handleInternalServerErrorProblem(w http.ResponseWriter, r *http.Request) {
 
 func handleRequestFieldsValidationProblem(w http.ResponseWriter, r *http.Request, errors []string) {
 	handleProblem(w, r, request_fields_validation_problem, errors)
+}
+
+func handleNotFoundProblem(w http.ResponseWriter, r *http.Request) {
+	handleProblem(w, r, not_found_problem, emptyErrors)
 }
 
 func registrationHandler(w http.ResponseWriter, r *http.Request) {
@@ -241,8 +252,85 @@ func threadsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	default:
 		{
-			testHandler(w, r)
+			handleNotFoundProblem(w, r)
 			return
 		}
 	}
+}
+
+func getPostsForThreadHandler(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	threadIdString := query.Get("threadId")
+	pageNumberString := query.Get("pageNumber")
+	threadId, errThreadId := strconv.ParseUint(threadIdString, 10, 64)
+	pageNumber, errPageNumber := strconv.ParseUint(pageNumberString, 10, 64)
+	if errThreadId != nil || errPageNumber != nil {
+		w.WriteHeader(400)
+		resp := standardResponse{Status: 0, Message: "Must provide valid Thread ID and Page Number in query string", Data: emptyData, Errors: emptyErrors}
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+	threadData, postDataList, internallyErrored := data.GetPostsListForThreadByPage(uint(threadId), uint(pageNumber))
+	if internallyErrored {
+		handleInternalServerErrorProblem(w, r)
+		return
+	}
+	if threadData == nil {
+		w.WriteHeader(404)
+		resp := standardResponse{Status: 1, Message: "Thread for which posts were requested, was not found", Data: emptyData, Errors: emptyErrors}
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+	respBody := make(map[string]interface{})
+	respBody["pageSize"] = config.PostPaginationSize
+	respBody["thread"] = threadData
+	respBody["posts"] = postDataList
+	if len(postDataList) == 0 {
+		respBody["empty"] = true
+	} else {
+		respBody["empty"] = false
+	}
+	resp := standardResponse{Status: 0, Message: "Successfully retrieved posts", Data: respBody, Errors: emptyErrors}
+	json.NewEncoder(w).Encode(resp)
+}
+
+func createPostForThreadHandler(w http.ResponseWriter, r *http.Request) {
+	var newPost data.PostPayload
+	err := json.NewDecoder(r.Body).Decode(&newPost)
+	if err != nil {
+		handleInvalidBodyProblem(w, r)
+		return
+	}
+	authClaims := getDecodedAuthClaims(r)
+	errors, internallyErrored := newPost.CreatePost(authClaims.ID)
+	if internallyErrored {
+		handleInternalServerErrorProblem(w, r)
+		return
+	}
+	if len(errors) > 0 {
+		handleRequestFieldsValidationProblem(w, r, errors)
+		return
+	}
+	resp := standardResponse{Status: 0, Message: "Successfully created post", Data: emptyData, Errors: emptyErrors}
+	json.NewEncoder(w).Encode(resp)
+}
+
+func postsHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		{
+			getPostsForThreadHandler(w, r)
+			return
+		}
+	case http.MethodPost:
+		{
+			createPostForThreadHandler(w, r)
+		}
+	default:
+		{
+			handleNotFoundProblem(w, r)
+			return
+		}
+	}
+
 }
